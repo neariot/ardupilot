@@ -80,7 +80,7 @@ public:
 
     /// voltage - returns battery voltage in millivolts
     float voltage(uint8_t instance) const;
-    float voltage() const { return voltage(AP_BATT_PRIMARY_INSTANCE); }
+    float voltage() const { return 4.5; }
 
     // voltage2 - returns the voltage of the second battery (helper function to send 2nd voltage to GCS)
     float voltage2() const;
