@@ -29,6 +29,22 @@
 #include <arpa/inet.h>
 #include <sys/select.h>
 
+#include <stdio.h>
+#include <errno.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <time.h>
+#include <sys/time.h>
+#include <arpa/inet.h>
+
+#define BUFFER_LENGTH 100
+
+
 class SocketVision {
 public:
   SocketVision(bool _datagram);
@@ -280,51 +296,56 @@ public:
 private:
   int _gps_sub;
   struct vision_pos _gps_pos;
-  SocketVision mav_socket{ true };
-  struct {
-    bool connected;
-    mavlink_message_t rxmsg;
-    mavlink_status_t status;
-    uint8_t seq;
-  } mavlink;
+  uint8_t buf[BUFFER_LENGTH];
+  ssize_t recsize;
+  socklen_t fromlen;
+  int bytes_sent;
+  mavlink_message_t msg;
+  uint16_t len;
+  int i = 0;
+  unsigned int temp = 0;
+  int sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
+  struct sockaddr_in gcAddr;
+  struct sockaddr_in locAddr;
+  char target_ip[100];
 };
 
 AP_GPS_VISION::AP_GPS_VISION(AP_GPS &_gps, AP_GPS::GPS_State &_state,
                              AP_HAL::UARTDriver *_port)
     : AP_GPS_Backend(_gps, _state, _port) {
-  mav_socket.connect("127.0.0.1", 12345);
+
+    strcpy(target_ip, "127.0.0.1");
+    memset(&locAddr, 0, sizeof(locAddr));
+    locAddr.sin_family = AF_INET;
+    locAddr.sin_addr.s_addr = INADDR_ANY;
+    locAddr.sin_port = htons(12345);
+    bind(sock,(struct sockaddr *)&locAddr, sizeof(struct sockaddr));
+    fcntl(sock, F_SETFL, O_NONBLOCK | FASYNC);
+    memset(&gcAddr, 0, sizeof(gcAddr));
+    gcAddr.sin_family = AF_INET;
+    gcAddr.sin_addr.s_addr = inet_addr(target_ip);
+    gcAddr.sin_port = htons(14550);
 }
 
 bool AP_GPS_VISION::read(void) {
-
-  uint8_t buf[100];
-  ssize_t ret;
-  while ((ret = mav_socket.recv(buf, sizeof(buf), 0)) > 0) {
-    for (uint8_t i = 0; i < ret; i++) {
-      mavlink_message_t msg;
-      mavlink_status_t status;
-      if (mavlink_frame_char_buffer(&mavlink.rxmsg, &mavlink.status, buf[i],
-                                    &msg, &status) == MAVLINK_FRAMING_OK) {
-        switch (msg.msgid) {
-        case MAVLINK_MSG_ID_HEARTBEAT: { break; }
-        case MAVLINK_MSG_ID_LOCAL_POSITION_NED: {
+    recsize = 0 ;
+    recsize = recvfrom(sock, (void *)buf, BUFFER_LENGTH, 0, (struct sockaddr *)&gcAddr, &fromlen);
+    if (recsize > 0)
+    {
           mavlink_local_position_ned_t pos;
           mavlink_msg_local_position_ned_decode(&msg, &pos);
-          state.location.lat = pos.x; //_gps_pos.lat;
-          state.location.lng = pos.y; //_gps_pos.lon;
-          state.location.alt = pos.z; //_gps_pos.alt / 10;
-          break;
-        }
-        }
+          state.location.lat = 3898; //_gps_pos.lat;
+          state.location.lng = 9878978; //_gps_pos.lon;
+          state.location.alt = 90898; //_gps_pos.alt / 10;
+          state.last_gps_time_ms = AP_HAL::millis();
+          state.status = (AP_GPS::GPS_Status)3; //_gps_pos.status;
+          state.num_sats = 5;
+          state.hdop = _gps_pos.hdop;
+          state.ground_speed = _gps_pos.ground_speed;
+          state.hdop = _gps_pos.hdop;
+           return true;
       }
-    }
-  }
-  state.last_gps_time_ms = AP_HAL::millis();
-  state.status = (AP_GPS::GPS_Status)3; //_gps_pos.status;
-  state.num_sats = 5;
-  state.hdop = _gps_pos.hdop;
-  state.ground_speed = _gps_pos.ground_speed;
-  state.hdop = _gps_pos.hdop;
+ state.num_sats = 3;
   return true;
 }
 
