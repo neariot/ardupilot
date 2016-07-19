@@ -14,11 +14,246 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "AP_GPS.h"
-
 #include <AP_Common/AP_Common.h>
 #include <AP_HAL/AP_HAL.h>
 #include <AP_Math/AP_Math.h>
 #include <AP_Notify/AP_Notify.h>
+#include <AP_HAL/AP_HAL.h>
+
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <arpa/inet.h>
+#include <sys/select.h>
+
+class SocketVision {
+public:
+  SocketVision(bool _datagram);
+  SocketVision(bool _datagram, int _fd);
+  ~SocketVision();
+
+  bool connect(const char *address, uint16_t port);
+  bool bind(const char *address, uint16_t port);
+  void reuseaddress();
+  void set_blocking(bool blocking);
+  void set_broadcast(void);
+
+  ssize_t send(const void *pkt, size_t size);
+  ssize_t sendto(const void *buf, size_t size, const char *address,
+                 uint16_t port);
+  ssize_t recv(void *pkt, size_t size, uint32_t timeout_ms);
+
+  // return the IP address and port of the last received packet
+  void last_recv_address(const char *&ip_addr, uint16_t &port);
+
+  // return true if there is pending data for input
+  bool pollin(uint32_t timeout_ms);
+
+  // return true if there is room for output data
+  bool pollout(uint32_t timeout_ms);
+
+  // start listening for new tcp connections
+  bool listen(uint16_t backlog);
+
+  // accept a new connection. Only valid for TCP connections after
+  // listen has been used. A new socket is returned
+  SocketVision *accept(uint32_t timeout_ms);
+
+private:
+  bool datagram;
+  struct sockaddr_in in_addr {};
+
+  int fd = -1;
+
+  void make_sockaddr(const char *address, uint16_t port,
+                     struct sockaddr_in &sockaddr);
+};
+
+SocketVision::SocketVision(bool _datagram)
+    : SocketVision(_datagram,
+                   socket(AF_INET, _datagram ? SOCK_DGRAM : SOCK_STREAM, 0)) {}
+
+SocketVision::SocketVision(bool _datagram, int _fd)
+    : datagram(_datagram), fd(_fd) {
+  fcntl(fd, F_SETFD, FD_CLOEXEC);
+  if (!datagram) {
+    int one = 1;
+    setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
+  }
+}
+
+SocketVision::~SocketVision() {
+  if (fd != -1) {
+    ::close(fd);
+    fd = -1;
+  }
+}
+
+void SocketVision::make_sockaddr(const char *address, uint16_t port,
+                                 struct sockaddr_in &sockaddr) {
+  memset(&sockaddr, 0, sizeof(sockaddr));
+
+#ifdef HAVE_SOCK_SIN_LEN
+  sockaddr.sin_len = sizeof(sockaddr);
+#endif
+  sockaddr.sin_port = htons(port);
+  sockaddr.sin_family = AF_INET;
+  sockaddr.sin_addr.s_addr = inet_addr(address);
+}
+
+/*
+  connect the socket
+ */
+bool SocketVision::connect(const char *address, uint16_t port) {
+  struct sockaddr_in sockaddr;
+  make_sockaddr(address, port, sockaddr);
+
+  if (::connect(fd, (struct sockaddr *)&sockaddr, sizeof(sockaddr)) != 0) {
+    return false;
+  }
+  return true;
+}
+
+/*
+  bind the socket
+ */
+bool SocketVision::bind(const char *address, uint16_t port) {
+  struct sockaddr_in sockaddr;
+  make_sockaddr(address, port, sockaddr);
+
+  if (::bind(fd, (struct sockaddr *)&sockaddr, sizeof(sockaddr)) != 0) {
+    return false;
+  }
+  return true;
+}
+
+/*
+  set SO_REUSEADDR
+ */
+void SocketVision::reuseaddress(void) {
+  int one = 1;
+  setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+}
+
+/*
+  set blocking state
+ */
+void SocketVision::set_blocking(bool blocking) {
+  if (blocking) {
+    fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) & ~O_NONBLOCK);
+  } else {
+    fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
+  }
+}
+
+/*
+  send some data
+ */
+ssize_t SocketVision::send(const void *buf, size_t size) {
+  return ::send(fd, buf, size, 0);
+}
+
+/*
+  send some data
+ */
+ssize_t SocketVision::sendto(const void *buf, size_t size, const char *address,
+                             uint16_t port) {
+  struct sockaddr_in sockaddr;
+  make_sockaddr(address, port, sockaddr);
+  return ::sendto(fd, buf, size, 0, (struct sockaddr *)&sockaddr,
+                  sizeof(sockaddr));
+}
+
+/*
+  receive some data
+ */
+ssize_t SocketVision::recv(void *buf, size_t size, uint32_t timeout_ms) {
+  if (!pollin(timeout_ms)) {
+    return -1;
+  }
+  socklen_t len = sizeof(in_addr);
+  return ::recvfrom(fd, buf, size, MSG_DONTWAIT, (sockaddr *)&in_addr, &len);
+}
+
+/*
+  return the IP address and port of the last received packet
+ */
+void SocketVision::last_recv_address(const char *&ip_addr, uint16_t &port) {
+  ip_addr = inet_ntoa(in_addr.sin_addr);
+  port = ntohs(in_addr.sin_port);
+}
+
+void SocketVision::set_broadcast(void) {
+  int one = 1;
+  setsockopt(fd, SOL_SOCKET, SO_BROADCAST, (char *)&one, sizeof(one));
+}
+
+/*
+  return true if there is pending data for input
+ */
+bool SocketVision::pollin(uint32_t timeout_ms) {
+  fd_set fds;
+  struct timeval tv;
+
+  FD_ZERO(&fds);
+  FD_SET(fd, &fds);
+
+  tv.tv_sec = timeout_ms / 1000;
+  tv.tv_usec = (timeout_ms % 1000) * 1000UL;
+
+  if (select(fd + 1, &fds, NULL, NULL, &tv) != 1) {
+    return false;
+  }
+  return true;
+}
+
+/*
+  return true if there is room for output data
+ */
+bool SocketVision::pollout(uint32_t timeout_ms) {
+  fd_set fds;
+  struct timeval tv;
+
+  FD_ZERO(&fds);
+  FD_SET(fd, &fds);
+
+  tv.tv_sec = timeout_ms / 1000;
+  tv.tv_usec = (timeout_ms % 1000) * 1000UL;
+
+  if (select(fd + 1, NULL, &fds, NULL, &tv) != 1) {
+    return false;
+  }
+  return true;
+}
+
+/*
+   start listening for new tcp connections
+ */
+bool SocketVision::listen(uint16_t backlog) {
+  return ::listen(fd, (int)backlog) == 0;
+}
+
+/*
+  accept a new connection. Only valid for TCP connections after
+  listen has been used. A new socket is returned
+*/
+SocketVision *SocketVision::accept(uint32_t timeout_ms) {
+  if (!pollin(timeout_ms)) {
+    return NULL;
+  }
+
+  int newfd = ::accept(fd, NULL, NULL);
+  if (newfd == -1) {
+    return NULL;
+  }
+  // turn off nagle for lower latency
+  int one = 1;
+  setsockopt(newfd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
+  return new SocketVision(false, newfd);
+}
 
 extern const AP_HAL::HAL &hal;
 
@@ -45,20 +280,49 @@ public:
 private:
   int _gps_sub;
   struct vision_pos _gps_pos;
+  SocketVision mav_socket{ true };
+  struct {
+    bool connected;
+    mavlink_message_t rxmsg;
+    mavlink_status_t status;
+    uint8_t seq;
+  } mavlink;
 };
 
 AP_GPS_VISION::AP_GPS_VISION(AP_GPS &_gps, AP_GPS::GPS_State &_state,
                              AP_HAL::UARTDriver *_port)
-    : AP_GPS_Backend(_gps, _state, _port) {}
+    : AP_GPS_Backend(_gps, _state, _port) {
+  mav_socket.connect("127.0.0.1", 12345);
+}
 
 bool AP_GPS_VISION::read(void) {
+
+  uint8_t buf[100];
+  ssize_t ret;
+  while ((ret = mav_socket.recv(buf, sizeof(buf), 0)) > 0) {
+    for (uint8_t i = 0; i < ret; i++) {
+      mavlink_message_t msg;
+      mavlink_status_t status;
+      if (mavlink_frame_char_buffer(&mavlink.rxmsg, &mavlink.status, buf[i],
+                                    &msg, &status) == MAVLINK_FRAMING_OK) {
+        switch (msg.msgid) {
+        case MAVLINK_MSG_ID_HEARTBEAT: { break; }
+        case MAVLINK_MSG_ID_LOCAL_POSITION_NED: {
+          mavlink_local_position_ned_t pos;
+          mavlink_msg_local_position_ned_decode(&msg, &pos);
+          state.location.lat = pos.x; //_gps_pos.lat;
+          state.location.lng = pos.y; //_gps_pos.lon;
+          state.location.alt = pos.z; //_gps_pos.alt / 10;
+          break;
+        }
+        }
+      }
+    }
+  }
   state.last_gps_time_ms = AP_HAL::millis();
-  state.status =  (AP_GPS::GPS_Status) 3; //_gps_pos.status;
-  state.num_sats = _gps_pos.num_sats;
-  state.hdop =_gps_pos.hdop;
-  state.location.lat = 2;//_gps_pos.lat;
-  state.location.lng = 3;//_gps_pos.lon;
-  state.location.alt = 4;//_gps_pos.alt / 10;
+  state.status = (AP_GPS::GPS_Status)3; //_gps_pos.status;
+  state.num_sats = 5;
+  state.hdop = _gps_pos.hdop;
   state.ground_speed = _gps_pos.ground_speed;
   state.hdop = _gps_pos.hdop;
   return true;

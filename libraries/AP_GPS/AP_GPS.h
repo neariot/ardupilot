@@ -342,7 +342,19 @@ private:
     struct GPS_timing {
         // the time we got our last fix in system milliseconds
         uint32_t last_fix_time_ms;
+        //            state.last_gps_time_ms = AP_HAL::millis();
+        //            state.status  = (AP_GPS::GPS_Status) (_gps_pos.fix_type | AP_GPS::NO_FIX);
+        //            state.num_sats = _gps_pos.satellites_used;
+        //            state.hdop = uint16_t(_gps_pos.eph*100.0f + .5f);
 
+        //            if (_gps_pos.fix_type >= 2) {
+        //                state.location.lat = _gps_pos.lat;
+        //                state.location.lng = _gps_pos.lon;
+        //                state.location.alt = _gps_pos.alt/10;
+
+        //                state.ground_speed = _gps_pos.vel_m_s;
+        //                state.ground_course_cd = wrap_360_cd(degrees(_gps_pos.cog_rad)*100);
+        //                state.hdop = _gps_pos.eph*100;
         // the time we got our last fix in system milliseconds
         uint32_t last_message_time_ms;
     };
