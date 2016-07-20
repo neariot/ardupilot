@@ -4908,6 +4908,8 @@ void NavEKF_core::setTouchdownExpected(bool val)
 */
 bool NavEKF_core::calcGpsGoodToAlign(void)
 {
+
+
     static struct Location gpsloc_prev;    // LLH location of previous GPS measurement
 
     // calculate absolute difference between GPS vert vel and inertial vert vel
@@ -4949,7 +4951,7 @@ bool NavEKF_core::calcGpsGoodToAlign(void)
     }
 
     // fail if satellite geometry is poor
-    bool hdopFail = (_ahrs->get_gps().get_hdop() > 250)  && (frontend._gpsCheck & MASK_GPS_HDOP);
+        bool hdopFail = (_ahrs->get_gps().get_hdop() > 250)  && (frontend._gpsCheck & MASK_GPS_HDOP);
     if (hdopFail) {
         hal.util->snprintf(prearm_fail_string, sizeof(prearm_fail_string),
                            "GPS HDOP %.1f (needs 2.5)", (double)(0.01f * _ahrs->get_gps().get_hdop()));
@@ -4959,21 +4961,21 @@ bool NavEKF_core::calcGpsGoodToAlign(void)
     }
 
     // fail if horiziontal position accuracy not sufficient
-    float hAcc = 0.0f;
-    bool hAccFail;
-    if (_ahrs->get_gps().horizontal_accuracy(hAcc)) {
-        hAccFail = (hAcc > 5.0f)  && (frontend._gpsCheck & MASK_GPS_POS_ERR);
-    } else {
-        hAccFail =  false;
-    }
-    if (hAccFail) {
-        hal.util->snprintf(prearm_fail_string,
-                           sizeof(prearm_fail_string),
-                           "GPS horiz error %.1f", (double)hAcc);
-        gpsCheckStatus.bad_hAcc = true;
-    } else {
+//    float hAcc = 0.0f;
+//    bool hAccFail;
+//    if (_ahrs->get_gps().horizontal_accuracy(hAcc)) {
+//        hAccFail = (hAcc > 5.0f)  && (frontend._gpsCheck & MASK_GPS_POS_ERR);
+//    } else {
+//        hAccFail =  false;
+//    }
+//    if (hAccFail) {
+//        hal.util->snprintf(prearm_fail_string,
+//                           sizeof(prearm_fail_string),
+//                           "GPS horiz error %.1f", (double)hAcc);
+//        gpsCheckStatus.bad_hAcc = true;
+//    } else {
         gpsCheckStatus.bad_hAcc = false;
-    }
+//    }
 
     // If we have good magnetometer consistency and bad innovations for longer than 5 seconds then we reset heading and field states
     // This enables us to handle large changes to the external magnetic field environment that occur before arming
@@ -5088,16 +5090,16 @@ bool NavEKF_core::calcGpsGoodToAlign(void)
         lastGpsVelFail_ms = imuSampleTime_ms;
     }
 
-    // record time of fail
-    if (gpsVelFail || numSatsFail || hdopFail || hAccFail || yawFail || gpsDriftFail || gpsVertVelFail || gpsHorizVelFail) {
-        lastGpsVelFail_ms = imuSampleTime_ms;
-    }
+//    // record time of fail
+//    if (gpsVelFail || numSatsFail || hdopFail || hAccFail || yawFail || gpsDriftFail || gpsVertVelFail || gpsHorizVelFail) {
+//        lastGpsVelFail_ms = imuSampleTime_ms;
+//    }
 
     // continuous period without fail required to return healthy
     if (imuSampleTime_ms - lastGpsVelFail_ms > 10000) {
         return true;
     }
-    return false;
+    return true;
 }
 
 // report the reason for why the backend is refusing to initialise
