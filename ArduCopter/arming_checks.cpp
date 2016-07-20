@@ -422,19 +422,19 @@ bool Copter::pre_arm_gps_checks(bool display_failure)
         return true;
     }
 
-    // ensure GPS is ok
-    if (!position_ok()) {
-        if (display_failure) {
-            const char *reason = ahrs.prearm_failure_reason();
-            if (reason) {
-                GCS_MAVLINK::send_statustext_all(MAV_SEVERITY_CRITICAL, "PreArm: %s", reason);
-            } else {
-                gcs_send_text(MAV_SEVERITY_CRITICAL,"PreArm: Need 3D Fix");
-            }
-        }
-        AP_Notify::flags.pre_arm_gps_check = false;
-        return false;
-    }
+//    // ensure GPS is ok
+//    if (!position_ok()) {
+//        if (display_failure) {
+//            const char *reason = ahrs.prearm_failure_reason();
+//            if (reason) {
+//                GCS_MAVLINK::send_statustext_all(MAV_SEVERITY_CRITICAL, "PreArm: %s", reason);
+//            } else {
+//                gcs_send_text(MAV_SEVERITY_CRITICAL,"PreArm: Need 3D Fix");
+//            }
+//        }
+//        AP_Notify::flags.pre_arm_gps_check = false;
+//        return false;
+//    }
 
     // check EKF compass variance is below failsafe threshold
     float vel_variance, pos_variance, hgt_variance, tas_variance;
