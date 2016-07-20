@@ -332,28 +332,29 @@ bool AP_GPS_VISION::read(void) {
   recsize = recvfrom(sock, (void *)buf, BUFFER_LENGTH, 0,
                      (struct sockaddr *)&gcAddr, &fromlen);
   if (recsize > 0) {
-     mavlink_message_t msg;
-     mavlink_status_t status;
-     for (i = 0; i < recsize; ++i) {
+    mavlink_message_t msg;
+    mavlink_status_t status;
+    for (i = 0; i < recsize; ++i) {
       temp = buf[i];
-      if (mavlink_parse_char(MAVLINK_COMM_0, buf[i], &msg, &status)) {
+      if (mavlink_parse_char(MAVLINK_COMM_2, buf[i], &msg, &status)) {
         mavlink_local_position_ned_t pos;
         mavlink_msg_local_position_ned_decode(&msg, &pos);
         state.location.lat = pos.x; //_gps_pos.lat;
         state.location.lng = pos.y; //_gps_pos.lon;
         state.location.alt = pos.z; //_gps_pos.alt / 10; 90898
-        state.last_gps_time_ms = AP_HAL::millis();
-        state.status = (AP_GPS::GPS_Status)3; //_gps_pos.status;
-        state.num_sats = 10;
-        state.hdop = _gps_pos.hdop;
-        state.ground_speed = _gps_pos.ground_speed;
-        state.hdop = _gps_pos.hdop;
+
       }
     }
-    memset(buf, 0, BUFFER_LENGTH);
-    return true;
   }
-  return false;
+
+  state.last_gps_time_ms = AP_HAL::millis();
+  state.hdop = _gps_pos.hdop;
+  state.ground_speed = _gps_pos.ground_speed;
+  state.hdop = _gps_pos.hdop;
+  state.status = (AP_GPS::GPS_Status)3; //_gps_pos.status;
+  state.num_sats = 10;
+  memset(buf, 0, BUFFER_LENGTH);
+  return true;
 }
 
 // table of user settable parameters
