@@ -324,7 +324,7 @@ AP_GPS_VISION::AP_GPS_VISION(AP_GPS &_gps, AP_GPS::GPS_State &_state,
     memset(&gcAddr, 0, sizeof(gcAddr));
     gcAddr.sin_family = AF_INET;
     gcAddr.sin_addr.s_addr = inet_addr(target_ip);
-    gcAddr.sin_port = htons(14550);
+    gcAddr.sin_port = htons(12345);
 }
 
 bool AP_GPS_VISION::read(void) {
@@ -339,14 +339,13 @@ bool AP_GPS_VISION::read(void) {
           state.location.alt = 90898; //_gps_pos.alt / 10;
           state.last_gps_time_ms = AP_HAL::millis();
           state.status = (AP_GPS::GPS_Status)3; //_gps_pos.status;
-          state.num_sats = 5;
+          state.num_sats = 10;
           state.hdop = _gps_pos.hdop;
           state.ground_speed = _gps_pos.ground_speed;
           state.hdop = _gps_pos.hdop;
            return true;
       }
- state.num_sats = 3;
-  return true;
+  return false;
 }
 
 // table of user settable parameters

@@ -82,15 +82,15 @@ bool NavEKF2_core::calcGpsGoodToAlign(void)
         gpsVertVelFail = false;
     }
 
-    // Report check result as a text string and bitmask
-    if (gpsVertVelFail) {
-        hal.util->snprintf(prearm_fail_string,
-                           sizeof(prearm_fail_string),
-                           "GPS vertical speed %.2fm/s (needs %.2f)", (double)fabsf(gpsVertVelFilt), (double)(0.3f*checkScaler));
-        gpsCheckStatus.bad_vert_vel = true;
-    } else {
+//    // Report check result as a text string and bitmask
+//    if (gpsVertVelFail) {
+//        hal.util->snprintf(prearm_fail_string,
+//                           sizeof(prearm_fail_string),
+//                           "GPS vertical speed %.2fm/s (needs %.2f)", (double)fabsf(gpsVertVelFilt), (double)(0.3f*checkScaler));
+//        gpsCheckStatus.bad_vert_vel = true;
+//    } else {
         gpsCheckStatus.bad_vert_vel = false;
-    }
+//    }
 
     // Check that the horizontal GPS vertical velocity is reasonable after noise filtering
     // This check can only be used if the vehicle is stationary
@@ -190,22 +190,22 @@ bool NavEKF2_core::calcGpsGoodToAlign(void)
         gpsCheckStatus.bad_yaw = false;
     }
 
-    // assume failed first time through and notify user checks have started
-    if (lastGpsVelFail_ms == 0) {
-        hal.util->snprintf(prearm_fail_string, sizeof(prearm_fail_string), "EKF starting GPS checks");
-        lastGpsVelFail_ms = imuSampleTime_ms;
-    }
+//    // assume failed first time through and notify user checks have started
+//    if (lastGpsVelFail_ms == 0) {
+//        hal.util->snprintf(prearm_fail_string, sizeof(prearm_fail_string), "EKF starting GPS checks");
+//        lastGpsVelFail_ms = imuSampleTime_ms;
+//    }
 
-    // record time of fail
-    if (gpsSpdAccFail || numSatsFail || hdopFail || hAccFail || yawFail || gpsDriftFail || gpsVertVelFail || gpsHorizVelFail) {
-        lastGpsVelFail_ms = imuSampleTime_ms;
-    }
+//    // record time of fail
+//    if (gpsSpdAccFail || numSatsFail || hdopFail || hAccFail || yawFail || gpsDriftFail || gpsVertVelFail || gpsHorizVelFail) {
+//        lastGpsVelFail_ms = imuSampleTime_ms;
+//    }
 
-    // continuous period without fail required to return a healthy status
-    if (imuSampleTime_ms - lastGpsVelFail_ms > 10000) {
-        return true;
-    }
-    return false;
+//    // continuous period without fail required to return a healthy status
+//    if (imuSampleTime_ms - lastGpsVelFail_ms > 10000) {
+//        return true;
+//    }
+    return true;
 }
 
 // update inflight calculaton that determines if GPS data is good enough for reliable navigation
