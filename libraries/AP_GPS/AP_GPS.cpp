@@ -342,15 +342,15 @@ bool AP_GPS_VISION::read(void) {
         state.location.lat = pos.x; //_gps_pos.lat;
         state.location.lng = pos.y; //_gps_pos.lon;
         state.location.alt = pos.z; //_gps_pos.alt / 10; 90898
+        state.last_gps_time_ms = AP_HAL::millis();
 
       }
     }
   }
-
   state.last_gps_time_ms = AP_HAL::millis();
-  state.hdop = _gps_pos.hdop;
-  state.ground_speed = _gps_pos.ground_speed;
-  state.hdop = _gps_pos.hdop;
+  state.hdop = 0;
+  state.ground_speed = 0;
+  state.vdop = 0;
   state.status = (AP_GPS::GPS_Status)3; //_gps_pos.status;
   state.num_sats = 10;
   memset(buf, 0, BUFFER_LENGTH);
