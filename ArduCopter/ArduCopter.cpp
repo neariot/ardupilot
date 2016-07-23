@@ -535,21 +535,21 @@ void Copter::update_GPS(void)
         }
     }
 
-    if (gps_updated) {
-        // set system time if necessary
-        set_system_time_from_GPS();
+//    if (gps_updated) {
+//        // set system time if necessary
+//        set_system_time_from_GPS();
 
-        // checks to initialise home and take location based pictures
-        if (gps.status() >= AP_GPS::GPS_OK_FIX_3D) {
+//        // checks to initialise home and take location based pictures
+//        if (gps.status() >= AP_GPS::GPS_OK_FIX_3D) {
 
-#if CAMERA == ENABLED
-            if (camera.update_location(current_loc, copter.ahrs) == true) {
-                do_take_picture();
-            }
-#endif
-        }
-    }
-}
+//#if CAMERA == ENABLED
+//            if (camera.update_location(current_loc, copter.ahrs) == true) {
+//                do_take_picture();
+//            }
+//#endif
+//        }
+//    }
+//}
 
 void Copter::init_simple_bearing()
 {
