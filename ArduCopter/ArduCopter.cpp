@@ -549,7 +549,7 @@ void Copter::update_GPS(void)
 //#endif
 //        }
 //    }
-//}
+}
 
 void Copter::init_simple_bearing()
 {
